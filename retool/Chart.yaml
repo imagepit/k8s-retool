@@ -1,0 +1,13 @@
+apiVersion: v2
+dependencies:
+- condition: postgresql.enabled
+  name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.1.5
+description: A Helm chart for Kubernetes
+maintainers:
+- email: engineering+helm@retool.com
+  name: Retool Engineering
+name: retool
+type: application
+version: 4.11.9
