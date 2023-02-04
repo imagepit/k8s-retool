@@ -1,74 +1,41 @@
-{{- if .Values.ingress.enabled }}
-{{- $fullName := include "retool.fullname" . -}}
-{{- $svcPort := .Values.service.externalPort -}}
-{{- $pathType := .Values.ingress.pathType -}}
-{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: retool-factsense-co-jp-cluster-issuer
+spec:
+  acme:
+    email: mgmt@factsense.co.jp
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: retool-factsense-co-jp-cluster-issuer-secret
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
 apiVersion: networking.k8s.io/v1
-{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
-apiVersion: networking.k8s.io/v1beta1
-{{- else -}}
-apiVersion: extensions/v1beta1
-{{- end }}
 kind: Ingress
 metadata:
-  labels:
-    {{- include "retool.labels" . | nindent 4 }}
-{{- if .Values.ingress.labels }}
-{{ toYaml .Values.ingress.labels | indent 4 }}
-{{- end }}
-{{- if .Values.ingress.annotations }}
+  name: retool-ingress
+  namespace: retool
   annotations:
-{{ toYaml .Values.ingress.annotations | indent 4 }}
-{{- end }}
-  name: {{ template "retool.fullname" . }}
+    cert-manager.io/cluster-issuer: "retool-factsense-co-jp-cluster-issuer"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    acme.cert-manager.io/http01-edit-in-place: "true"
 spec:
-  {{- if and .Values.ingress.ingressClassName (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.ingressClassName }}
-  {{- end }}
-  rules:
-    {{- if .Values.ingress.hostName }}
-    - host: {{ .Values.ingress.hostName | quote }}
-      http:
-        paths:
-          - path:
-            {{- if and $pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ $pathType }}
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ $fullName }}
-                port:
-                  number: {{ $svcPort }}
-              {{- else }}
-              serviceName: {{ $fullName }}
-              servicePort: {{ $svcPort }}
-              {{- end }}
-    {{- else }}
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
-      http:
-        paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and $pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ $pathType }}
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ $fullName }}
-                port:
-                  number: {{ $svcPort }}
-              {{- else }}
-              serviceName: {{ $fullName }}
-              servicePort: {{ $svcPort }}
-              {{- end }}
-          {{- end }}
-    {{- end }}
-  {{- end }}
-{{- if .Values.ingress.tls }}
+  ingressClassName: nginx
   tls:
-{{ toYaml .Values.ingress.tls | indent 4 }}
-{{- end -}}
-{{- end }}
+  - hosts:
+      - retool.factsense.co.jp
+    secretName: retool-factsense-co-jp-tls-secret
+  rules:
+  - host: retool.factsense.co.jp
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: retool-app
+            port:
+              number: 3000
